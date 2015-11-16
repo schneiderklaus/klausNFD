@@ -59,9 +59,16 @@ public:
   void
   setStrategy(fw::Strategy& strategy);
 
+  std::string
+  getParameters() const;
+
+  void
+  setParameters(std::string parameters);
+
 private:
   Name m_prefix;
   fw::Strategy* m_strategy;
+  std::string m_parameters;
 
   shared_ptr<name_tree::Entry> m_nameTreeEntry;
   friend class nfd::NameTree;
@@ -88,7 +95,23 @@ Entry::setStrategy(fw::Strategy& strategy)
   m_strategy = &strategy;
 }
 
+inline std::string
+Entry::getParameters() const
+{
+//  BOOST_ASSERT(m_parameters.size() != 0);
+  return m_parameters;
+}
+
+inline void
+Entry::setParameters(std::string parameters)
+{
+  m_parameters = parameters;
+}
+
 } // namespace strategy_choice
 } // namespace nfd
+
+
+
 
 #endif // NFD_DAEMON_TABLE_STRATEGY_CHOICE_ENTRY_HPP

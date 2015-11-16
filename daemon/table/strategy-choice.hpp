@@ -101,6 +101,9 @@ public: // effective strategy
   fw::Strategy&
   findEffectiveStrategy(const measurements::Entry& measurementsEntry) const;
 
+  // find effective strategy parameters for prefix
+  std::string findEffectiveParameters(const Name& prefix) const;
+
 public: // enumeration
   class const_iterator
     : public std::iterator<std::forward_iterator_tag, const strategy_choice::Entry>

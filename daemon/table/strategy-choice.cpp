@@ -46,6 +46,7 @@ StrategyChoice::StrategyChoice(NameTree& nameTree, shared_ptr<Strategy> defaultS
 bool
 StrategyChoice::hasStrategy(const Name& strategyName, bool isExact) const
 {
+  NFD_LOG_INFO("Has strategy: " << strategyName.toUri());
   if (isExact) {
     return m_strategyInstances.count(strategyName) > 0;
   }
@@ -57,6 +58,7 @@ StrategyChoice::hasStrategy(const Name& strategyName, bool isExact) const
 bool
 StrategyChoice::install(shared_ptr<Strategy> strategy)
 {
+  NFD_LOG_INFO("Install strategy: " << strategy->getName().toUri());
   BOOST_ASSERT(static_cast<bool>(strategy));
   const Name& strategyName = strategy->getName();
 
@@ -73,14 +75,18 @@ fw::Strategy*
 StrategyChoice::getStrategy(const Name& strategyName) const
 {
   fw::Strategy* candidate = nullptr;
-  for (auto it = m_strategyInstances.lower_bound(strategyName);
-       it != m_strategyInstances.end() && strategyName.isPrefixOf(it->first); ++it) {
-    switch (it->first.size() - strategyName.size()) {
-    case 0: // exact match
-      return it->second.get();
-    case 1: // unversioned strategyName matches versioned strategy
-      candidate = it->second.get();
-      break;
+  for (auto n : m_strategyInstances) {
+    // Include longer strategy names (with parameters)
+    if (strategyName.isPrefixOf(n.first) || n.first.isPrefixOf(strategyName)) {
+      switch (n.first.size() + 1 - strategyName.size()) {
+      case 0:  // Strategy with parameters (one element longer than exact match)
+        return n.second.get();
+      case 1:  // exact match
+        return n.second.get();
+      case 2:  // unversioned strategy name (one element shorter)
+        candidate = n.second.get();
+        break;
+      }
     }
   }
   return candidate;
@@ -89,6 +95,7 @@ StrategyChoice::getStrategy(const Name& strategyName) const
 bool
 StrategyChoice::insert(const Name& prefix, const Name& strategyName)
 {
+  NFD_LOG_INFO("Insert strategy : " << strategyName << " to " << prefix);
   Strategy* strategy = this->getStrategy(strategyName);
   if (strategy == nullptr) {
     NFD_LOG_ERROR("insert(" << prefix << "," << strategyName << ") strategy not installed");
@@ -117,7 +124,14 @@ StrategyChoice::insert(const Name& prefix, const Name& strategyName)
   }
 
   this->changeStrategy(*entry, *oldStrategy, *strategy);
+
+  // Also set strategy parameters
+  std::string strName = strategyName.toUri();
+  std::vector < std::string > strVector;
+  boost::split(strVector, strName, boost::is_any_of("/"));
   entry->setStrategy(*strategy);
+  // Use last element after "/" as parameter string
+  entry->setParameters(strVector.back());
   return true;
 }
 
@@ -173,6 +187,19 @@ StrategyChoice::findEffectiveStrategy(const Name& prefix) const
   BOOST_ASSERT(static_cast<bool>(nte));
   return nte->getStrategyChoiceEntry()->getStrategy();
 }
+
+std::string
+StrategyChoice::findEffectiveParameters(const Name& prefix) const
+{
+  shared_ptr < name_tree::Entry > nte = m_nameTree.findLongestPrefixMatch(prefix,
+      [] (const name_tree::Entry& entry) {
+        return static_cast<bool>(entry.getStrategyChoiceEntry());
+      });
+
+  BOOST_ASSERT(static_cast<bool>(nte));
+  return nte->getStrategyChoiceEntry()->getParameters();
+}
+
 
 Strategy&
 StrategyChoice::findEffectiveStrategy(shared_ptr<name_tree::Entry> nte) const
